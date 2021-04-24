@@ -78,7 +78,7 @@
           <div class="col-md-10">
             <article class="content wrap" id="_content" data-uid="">
                   <div class="contribution-panel mobile-hide pull-right">
-                      <a href="https://github.com/pnp/pnpcore/blob/dev/docs/using-the-sdk/sites-intro.md/#L1" title="Improve this Doc" class="improve-doc-lg"><i class="glyphicon glyphicon-pencil"></i></a>
+                      <a href="https://github.com/KoenZomers/pnpcore/blob/dev/docs/using-the-sdk/sites-intro.md/#L1" title="Improve this Doc" class="improve-doc-lg"><i class="glyphicon glyphicon-pencil"></i></a>
                   </div>
                     <h1 id="working-with-sites">Working with sites</h1>
 
@@ -96,10 +96,11 @@ var id = site.Id;
 </code></pre>
 <p>If you want to load additional site properties you can do that via using one of the Get methods:</p>
 <pre><code class="lang-csharp">// Load the root folder 
-await context.Web.GetAsync(p =&gt; p.RootFolder);
+await context.Web.LoadAsync(p =&gt; p.RootFolder);
 
 // Load the hub site id
-await context.Web.GetAsync(p =&gt; p.HubSiteId);
+var site = await context.Site.GetAsync(p =&gt; p.HubSiteId);
+Console.WriteLine(site.HubSiteId);
 </code></pre>
 </article>
           </div>

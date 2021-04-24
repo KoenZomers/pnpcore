@@ -78,7 +78,7 @@
           <div class="col-md-10">
             <article class="content wrap" id="_content" data-uid="">
                   <div class="contribution-panel mobile-hide pull-right">
-                      <a href="https://github.com/pnp/pnpcore/blob/dev/docs/using-the-sdk/readme.md/#L1" title="Improve this Doc" class="improve-doc-lg"><i class="glyphicon glyphicon-pencil"></i></a>
+                      <a href="https://github.com/KoenZomers/pnpcore/blob/dev/docs/using-the-sdk/readme.md/#L1" title="Improve this Doc" class="improve-doc-lg"><i class="glyphicon glyphicon-pencil"></i></a>
                   </div>
                     <h1 id="getting-started-with-the-pnp-core-sdk">Getting started with the PnP Core SDK</h1>
 
@@ -109,11 +109,11 @@ Each night these preview packages are refreshed, so you can always upgrade to th
     // Add the PnP Core SDK library services
     services.AddPnPCore();
     // Add the PnP Core SDK library services configuration from the appsettings.json file
-    services.Configure&lt;PnPCoreOptions&gt;(Configuration.GetSection(&quot;PnPCore&quot;));
+    services.Configure&lt;PnPCoreOptions&gt;(hostingContext.Configuration.GetSection(&quot;PnPCore&quot;));
     // Add the PnP Core SDK Authentication Providers
     services.AddPnPCoreAuthentication();
     // Add the PnP Core SDK Authentication Providers configuration from the appsettings.json file
-    services.Configure&lt;PnPCoreAuthenticationOptions&gt;(Configuration.GetSection(&quot;PnPCore&quot;));
+    services.Configure&lt;PnPCoreAuthenticationOptions&gt;(hostingContext.Configuration.GetSection(&quot;PnPCore&quot;));
 })
 // Let the builder know we're running in a console
 .UseConsoleLifetime()
@@ -386,46 +386,34 @@ if (myList != null)
 }
 </code></pre>
 <p>If you like, you can also leverage a fluent syntax enriched with LINQ (Language Integrated Query). For example, in the following code excerpt you can see how to write a query for the items of a list.</p>
-<pre><code class="lang-csharp">var document = await((await context.Web.Lists.GetByTitleAsync(&quot;Documents&quot;)).Items
-                            .Where(i =&gt; i.Title == &quot;Sample Document&quot;)
-                            .Load(i =&gt; i.Id,
-                                  i =&gt; i.Title))
-                            .ToListAsync();
+<pre><code class="lang-csharp">var list = await context.Web.Lists.GetByTitleAsync(&quot;Documents&quot;);
+var document = await list.Items.Where(i =&gt; i.Title == &quot;Sample Document&quot;)
+                               .QueryProperties(i =&gt; i.Id, i =&gt; i.Title)
+                               .FirstOrDefaultAsync();
 
 if (document != null)
 {
     Console.WriteLine($&quot;Document Title: {document.Title}&quot;);
 }
 </code></pre>
-<p>The same query can also be written using the collection Get methods (both examples will result in 2 queries being sent to Microsoft 365):</p>
-<pre><code class="lang-csharp">
-var list = await context.Web.Lists.GetByTitleAsync(&quot;Documents&quot;);
-var document = await list.Items.GetAsync(i =&gt; i.Title == &quot;Sample Document&quot;, i =&gt; i.Id, i =&gt; i.Title);
-
-if (document != null)
-{
-    Console.WriteLine($&quot;Document Title: {document.Title}&quot;);
-}
+<p>Another approach to mainly limit the data that's being pulled from Microsoft 365 is using the <code>QueryProperties()</code> method on the properties specified in the lambda expression(s), below example shows using <code>QueryProperties()</code> in a recursive manner: next to the Title property of the Web this request also loads the Lists for the Web and for each List it loads the Id, Title, DocumentTemplate and ContentTypes property. Given List ContentTypes is a collection, the Name and FieldLinks properties of each content type are loaded and, in turn, for ContentType FieldLinks, the Name property is loaded.</p>
+<pre><code class="lang-csharp">await context.Web.LoadAsync(p =&gt; p.Title,
+                            p =&gt; p.ContentTypes.QueryProperties(p =&gt; p.Name),
+                            p =&gt; p.Lists.QueryProperties(p =&gt; p.Id,
+                                                         p =&gt; p.Title,
+                                                         p =&gt; p.DocumentTemplate,
+                                p =&gt; p.ContentTypes.QueryProperties(p =&gt; p.Name,
+                                     p =&gt; p.FieldLinks.QueryProperties(p =&gt; p.Name)))
+                           );
 </code></pre>
-<p>Another approach to mainly limit the data that's being pulled from Microsoft 365 is using the <code>LoadProperties()</code> method on the properties specified in the lambda expression(s), below example shows using <code>LoadProperties()</code> in a recursive manner: next to the Title property of the Web this request also loads the Lists for the Web and for each List it loads the Id, Title, DocumentTemplate and ContentTypes property. Given List ContentTypes is a collection, the Name and FieldLinks properties of each content type are loaded and, in turn, for ContentType FieldLinks, the Name property is loaded.</p>
-<pre><code class="lang-csharp">await context.Web.GetAsync(p =&gt; p.Title,
-                           p =&gt; p.ContentTypes.LoadProperties(p =&gt; p.Name),
-                           p =&gt; p.Lists.LoadProperties(p =&gt; p.Id,
-                                                       p =&gt; p.Title,
-                                                       p =&gt; p.DocumentTemplate,
-                               p =&gt; p.ContentTypes.LoadProperties(p =&gt; p.Name,
-                                    p =&gt; p.FieldLinks.LoadProperties(p =&gt; p.Name)))
-                          );
-</code></pre>
-<p>The <code>LoadProperties()</code> method can also be combined with the various <code>GetBy</code> methods: below call will load the list with as title &quot;Documents&quot; and for that list all <code>ContentTypes</code> are loaded with all their respective <code>FieldLinks</code>.</p>
+<p>The <code>QueryProperties()</code> method can also be combined with the various <code>GetBy</code> methods: below call will load the list with as title &quot;Documents&quot; and for that list all <code>ContentTypes</code> are loaded with all their respective <code>FieldLinks</code>.</p>
 <pre><code class="lang-csharp">var web = context.Web;
-var list = web.Lists.GetByTitleAsync(&quot;Documents&quot;,
-                                    p =&gt; p.Title,
-                                    p =&gt; p.ListExperience,
-                                    p =&gt; p.ContentTypes.LoadProperties(p =&gt; p.Id,
-                                                                      p =&gt; p.Name,
-                                                                      p=&gt;p.FieldLinks.LoadProperties(p=&gt;p.Id,
-                                                                                                      p=&gt;p.Name)));
+var list = await web.Lists.GetByTitleAsync(&quot;Documents&quot;,
+                            p =&gt; p.Title,
+                            p =&gt; p.ListExperience,
+                            p =&gt; p.ContentTypes.QueryProperties(p =&gt; p.Id,
+                                   p =&gt; p.Name,
+                                   p=&gt;p.FieldLinks.QueryProperties(p=&gt;p.Id, p=&gt;p.Name)));
 </code></pre>
 </article>
           </div>
